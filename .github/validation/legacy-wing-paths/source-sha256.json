@@ -1,0 +1,29 @@
+{
+  "base_commit": "4f7745afbd9d0197c6475b4c7ac846d4932eaeda",
+  "files": {
+    "mempalace/maintenance_paths.py": {
+      "windows_bytes_sha256": "fa8c87908b54fade49aee9e18a7b3ee8f22411c096d1cfbab4a05224806bd0a8",
+      "lf_sha256": "fa8c87908b54fade49aee9e18a7b3ee8f22411c096d1cfbab4a05224806bd0a8"
+    },
+    "mempalace/rooms.py": {
+      "windows_bytes_sha256": "cdd88973fd0387cab387a31edf36e4b8155bab49c6f7e8fdb2c4cd2422874cfd",
+      "lf_sha256": "d45716af602750995cb0c85eadfd4aa6e8a8cca07a6227cfcf98d03112ac41a0"
+    },
+    "mempalace/wing_split.py": {
+      "windows_bytes_sha256": "a29a0402648c2dd3c4f74da5e3be9d55731225560ba089be1a9c714b8c749d60",
+      "lf_sha256": "1def2b9e45cd6219f3dd617fd58044454d12f896fe09726bb9edf4074061527e"
+    },
+    "tests/test_maintenance_paths.py": {
+      "windows_bytes_sha256": "23797dc01aade2cfcaaf15b6201bc015efa2da7a08d21485ff8dd259d63bc07d",
+      "lf_sha256": "23797dc01aade2cfcaaf15b6201bc015efa2da7a08d21485ff8dd259d63bc07d"
+    },
+    "tests/test_rooms.py": {
+      "windows_bytes_sha256": "8c41847bfdfc3b3ca8032471d78211c1e3d9d19e8615765172c839efb8e14069",
+      "lf_sha256": "1ad4603cecbc9496e9d6ea6faffacac25a940455820812133aa80ca11dd43a7d"
+    },
+    "tests/test_wing_split_plan_pin.py": {
+      "windows_bytes_sha256": "4167ab4594e649a560281677112f7f1e6586c803c76014bedbea438bcc694178",
+      "lf_sha256": "b7712a5931340a715fbe39ef77657fc45952d58435b180e160a4db6583c94c58"
+    }
+  }
+}

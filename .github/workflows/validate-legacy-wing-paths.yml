@@ -1,0 +1,44 @@
+name: Validate legacy wing maintenance paths
+
+on:
+  push:
+    branches: [validation/legacy-wing-maintenance-paths]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-legacy-wing-paths-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-suite:
+    if: >-
+      github.repository == 'Mohammad-Maraqa/mempalace' &&
+      github.ref == 'refs/heads/validation/legacy-wing-maintenance-paths' &&
+      !github.event.repository.private
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      MEM_VALIDATION_HOME: ${{ runner.temp }}/mempalace-validation-home
+      UV_CACHE_DIR: ${{ runner.temp }}/mempalace-uv-cache
+      UV_HTTP_TIMEOUT: '30'
+      UV_HTTP_RETRIES: '2'
+      UV_PYTHON_DOWNLOADS: never
+    steps:
+      - name: Check out the isolated validation branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7, repository pin
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7, repository pin
+        with:
+          python-version: '3.13'
+      - name: Install the reviewed uv version
+        run: python -m pip install --no-cache-dir --disable-pip-version-check --timeout 30 --retries 2 uv==0.13.6
+      - name: Install locked runtime and development dependencies
+        run: uv sync --locked --extra dev --python 3.13 --no-progress
+      - name: Prewarm the pinned public ONNX archive in the task home
+        run: uv run --locked --no-sync python .github/validation/legacy-wing-paths/prewarm.py
+      - name: Run the full suite with offline DNS and socket guards
+        run: uv run --locked --no-sync python .github/validation/legacy-wing-paths/run.py
