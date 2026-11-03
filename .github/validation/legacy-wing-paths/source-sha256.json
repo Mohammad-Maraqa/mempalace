@@ -2,8 +2,8 @@
   "base_commit": "4f7745afbd9d0197c6475b4c7ac846d4932eaeda",
   "files": {
     "mempalace/maintenance_paths.py": {
-      "windows_bytes_sha256": "fa8c87908b54fade49aee9e18a7b3ee8f22411c096d1cfbab4a05224806bd0a8",
-      "lf_sha256": "fa8c87908b54fade49aee9e18a7b3ee8f22411c096d1cfbab4a05224806bd0a8"
+      "windows_bytes_sha256": "682e095a81bca4a196d44fb8f41b97329c9ce7a02074884ca420c8ad1dc72dc3",
+      "lf_sha256": "682e095a81bca4a196d44fb8f41b97329c9ce7a02074884ca420c8ad1dc72dc3"
     },
     "mempalace/rooms.py": {
       "windows_bytes_sha256": "cdd88973fd0387cab387a31edf36e4b8155bab49c6f7e8fdb2c4cd2422874cfd",
@@ -14,8 +14,8 @@
       "lf_sha256": "1def2b9e45cd6219f3dd617fd58044454d12f896fe09726bb9edf4074061527e"
     },
     "tests/test_maintenance_paths.py": {
-      "windows_bytes_sha256": "23797dc01aade2cfcaaf15b6201bc015efa2da7a08d21485ff8dd259d63bc07d",
-      "lf_sha256": "23797dc01aade2cfcaaf15b6201bc015efa2da7a08d21485ff8dd259d63bc07d"
+      "windows_bytes_sha256": "862f1883d48512643ec7b2092d94f0041559988c9cf1c7ff699e4c8a03b0af58",
+      "lf_sha256": "862f1883d48512643ec7b2092d94f0041559988c9cf1c7ff699e4c8a03b0af58"
     },
     "tests/test_rooms.py": {
       "windows_bytes_sha256": "8c41847bfdfc3b3ca8032471d78211c1e3d9d19e8615765172c839efb8e14069",

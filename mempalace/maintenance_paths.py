@@ -5,6 +5,7 @@ import json
 import os
 import re
 import stat
+import unicodedata
 
 from .config import MempalaceConfig, sanitize_name
 from .fsio import open_source_file
@@ -13,6 +14,47 @@ _FAMILIES = {
     "split": ("wings", "split-", (".json", ".pending")),
     "rooms": ("rooms", "", (".json", ".apply-pending.json")),
 }
+
+
+def _portable_leaf(component):
+    stem = component.partition(".")[0].upper()
+    return (
+        not any(c in '<>:"/\\|?*' or unicodedata.category(c) in {"Cc", "Cs"} for c in component)
+        and component not in {".", ".."}
+        and not component.endswith((".", " "))
+        and re.fullmatch(r"CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|(?:COM|LPT)[1-9¹²³]", stem) is None
+        and (
+            len(component.encode("utf-16-le")) // 2
+            if os.name == "nt"
+            else len(component.encode("utf-8"))
+        )
+        <= 255
+    )
+
+
+def _redirected(info):
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    )
+
+
+def _existing_artifacts(directory, prefix, component, suffixes):
+    found = False
+    for extension in suffixes:
+        leaf = f"{prefix}{component}{extension}"
+        if not _portable_leaf(leaf):
+            continue
+        candidate = os.path.join(directory, leaf)
+        try:
+            info = os.lstat(candidate)
+        except FileNotFoundError:
+            continue
+        if _redirected(info) or not stat.S_ISREG(info.st_mode):
+            raise ValueError(
+                f"maintenance artifact is not a regular file (possibly symlink): {candidate}"
+            )
+        found = True
+    return found
 
 
 def wing_artifact_path(config: MempalaceConfig, wing: str, family: str, suffix: str) -> str:
@@ -37,50 +79,26 @@ def wing_artifact_path(config: MempalaceConfig, wing: str, family: str, suffix: 
 
     # Existing valid names keep their old behavior. Newly supported legacy
     # paths must not follow a state-directory or artifact symlink on reads.
-    def redirected(info):
-        return stat.S_ISLNK(info.st_mode) or bool(
-            getattr(info, "st_file_attributes", 0)
-            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
-        )
-
     try:
         directory_info = os.lstat(directory)
     except FileNotFoundError:
         pass
     else:
-        if redirected(directory_info):
+        if _redirected(directory_info):
             raise ValueError(
                 f"maintenance state directory is a symlink or reparse point: {directory}"
             )
 
-    def existing(component):
-        found = False
-        for extension in suffixes:
-            candidate = os.path.join(directory, f"{prefix}{component}{extension}")
-            try:
-                info = os.lstat(candidate)
-            except FileNotFoundError:
-                continue
-            if redirected(info) or not stat.S_ISREG(info.st_mode):
-                raise ValueError(
-                    f"maintenance artifact is not a regular file (possibly symlink): {candidate}"
-                )
-            found = True
-        return found
-
-    encoded_exists = existing(name)
-    # Only inspect raw names that are portable leaf components, never a path
-    # or Windows alternate stream. Long names cannot have portable artifacts.
-    safe_raw = (
-        re.fullmatch(r"[\w .'-]+", wing) is not None
-        and ".." not in wing
-        and len((prefix + wing + max(suffixes, key=len)).encode("utf-8")) <= 240
-    )
-    raw_exists = existing(wing) if safe_raw else False
+    encoded_exists = _existing_artifacts(directory, prefix, name, suffixes)
+    # Assess the composed leaf, not the stored key: a trailing dot in the
+    # key is internal to the filename once its artifact suffix is appended.
+    raw_exists = _existing_artifacts(directory, prefix, wing, suffixes)
     if encoded_exists and raw_exists:
         raise ValueError(f"both raw and encoded maintenance artifacts exist for wing {wing!r}")
     if raw_exists:
         name = wing
+    if not _portable_leaf(f"{prefix}{name}{suffix}"):
+        raise ValueError("existing maintenance state requires a non-portable artifact filename")
     # A historical raw name can resemble a reserved digest, and a
     # case-insensitive filesystem can alias two raw spellings. Never let
     # filename equality authorize overwriting another wing's approved plan.
@@ -97,6 +115,8 @@ def wing_artifact_path(config: MempalaceConfig, wing: str, family: str, suffix: 
             raise ValueError(f"maintenance artifact at {plan_path} is not for wing {wing!r}")
         owned_plan = True
     marker_path = os.path.join(directory, f"{prefix}{name}{suffixes[-1]}")
+    if not _portable_leaf(f"{prefix}{name}{suffixes[-1]}"):
+        return os.path.join(directory, f"{prefix}{name}{suffix}")
     try:
         fd, _ = open_source_file(marker_path)
     except FileNotFoundError:

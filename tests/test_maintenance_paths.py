@@ -270,6 +270,111 @@ def test_safe_raw_name_resembling_encoding_prefix_still_loads(tmp_path):
     assert split_plan_path(cfg, wing) == str(path)
 
 
+@pytest.mark.parametrize(
+    "wing",
+    ["-Users-fixture-R&D", "_notes (v1)+[draft]@x", "-日本語🚀", "-foo.", "-foo ", "-notes..old"],
+)
+@pytest.mark.parametrize("family", ["split", "rooms"])
+def test_portable_punctuation_keeps_historical_plan_and_marker(tmp_path, wing, family):
+    cfg = MempalaceConfig(palace_path=str(tmp_path))
+    if family == "split":
+        folder, prefix, suffix = "wings", "split-", ".pending"
+        payload = _plan(wing)
+    else:
+        folder, prefix, suffix = "rooms", "", ".apply-pending.json"
+        payload = RoomSet(wing, [RoomSpec("releases", "Release work")]).to_dict()
+    directory = tmp_path / folder
+    directory.mkdir()
+    plan = directory / f"{prefix}{wing}.json"
+    marker = directory / f"{prefix}{wing}{suffix}"
+    plan.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    marker.write_text(json.dumps({"wing": wing, "closets": [], "ambiguous": 0}), encoding="utf-8")
+    before = (plan.read_bytes(), marker.read_bytes())
+    if family == "split":
+        assert split_plan_path(cfg, wing) == str(plan)
+        assert split_pending_path(cfg, wing) == str(marker)
+        assert load_split_plan(cfg, wing)["wing"] == wing
+    else:
+        assert room_set_path(cfg, wing) == str(plan)
+        assert pending_apply_path(cfg, wing) == str(marker)
+        assert load_room_set(cfg, wing).wing == wing
+        assert load_pending_apply(cfg, wing)[0] == {}
+    assert (plan.read_bytes(), marker.read_bytes()) == before
+
+
+@pytest.mark.parametrize("family", ["split", "rooms"])
+def test_long_portable_raw_pair_is_not_hidden(tmp_path, family):
+    # The final artifact component, rather than an arbitrary smaller wing
+    # budget, determines whether an old file can exist on a portable filesystem.
+    palace = Path("\\\\?\\" + str(tmp_path)) if os.name == "nt" else tmp_path
+    wing = "-" + "a" * 230
+    test_portable_punctuation_keeps_historical_plan_and_marker(palace, wing, family)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows component length uses UTF-16 units")
+@pytest.mark.parametrize("family", ["split", "rooms"])
+def test_existing_windows_unicode_raw_pair_is_not_hidden(tmp_path, family):
+    palace = Path("\\\\?\\" + str(tmp_path))
+    wing = "-" + "日" * 120
+    assert len(wing.encode("utf-8")) > 255
+    assert len(wing.encode("utf-16-le")) // 2 < 255
+    test_portable_punctuation_keeps_historical_plan_and_marker(palace, wing, family)
+
+
+def test_long_room_plan_is_not_hidden_by_an_oversized_missing_marker(tmp_path):
+    palace = Path("\\\\?\\" + str(tmp_path)) if os.name == "nt" else tmp_path
+    cfg = MempalaceConfig(palace_path=str(palace))
+    wing = "-" + "a" * 239
+    directory = palace / "rooms"
+    directory.mkdir()
+    plan = directory / f"{wing}.json"
+    plan.write_text(
+        json.dumps(RoomSet(wing, [RoomSpec("releases", "Release work")]).to_dict()),
+        encoding="utf-8",
+    )
+    before = plan.read_bytes()
+    assert room_set_path(cfg, wing) == str(plan)
+    assert load_room_set(cfg, wing).wing == wing
+    with pytest.raises(ValueError, match="portable.*filename"):
+        pending_apply_path(cfg, wing)
+    assert plan.read_bytes() == before
+
+
+def test_device_key_is_safe_when_split_prefix_changes_actual_basename(tmp_path):
+    test_portable_punctuation_keeps_historical_plan_and_marker(tmp_path, "CONOUT$", "split")
+
+
+@pytest.mark.parametrize("build", [room_set_path, pending_apply_path])
+def test_room_device_basename_is_not_probed(tmp_path, monkeypatch, build):
+    test_nonportable_raw_keys_are_not_probed_as_artifact_paths(
+        tmp_path, monkeypatch, build, "CONOUT$"
+    )
+
+
+@pytest.mark.parametrize("build", BUILDERS)
+@pytest.mark.parametrize(
+    "wing",
+    [
+        "../outside",
+        r"..\outside",
+        "-foo:stream",
+        "-foo<bar",
+        "-foo\nbar",
+    ],
+)
+def test_nonportable_raw_keys_are_not_probed_as_artifact_paths(tmp_path, monkeypatch, build, wing):
+    cfg = MempalaceConfig(palace_path=str(tmp_path))
+    actual_lstat = os.lstat
+
+    def contained_only(path, *args, **kwargs):
+        assert wing not in str(path), "nonportable raw key reached the filesystem"
+        return actual_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "lstat", contained_only)
+    selected = Path(build(cfg, wing))
+    assert selected.parent in (tmp_path / "wings", tmp_path / "rooms")
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows directory junction")
 @pytest.mark.parametrize("build", BUILDERS)
 def test_legacy_artifacts_refuse_junction_state_directory(tmp_path, build):
